@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>예산 및 사업 인포그래픽 인터랙티브 대시보드</title>
+  
+  <!-- Font & Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- External Libraries (CDN) -->
+  <!-- SheetJS for Excel (XLSX, XLS) & CSV Parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Chart.js for High-performance Infographic Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+
+  <div class="dashboard-wrapper">
+    
+    <!-- 1. Top Navbar -->
+    <header class="top-navbar">
+      <div class="navbar-brand">
+        <div class="brand-icon">
+          <i data-lucide="pie-chart" style="width: 24px; height: 24px;"></i>
+        </div>
+        <div class="brand-title">
+          <h1>예산 및 중점사업 인포그래픽 대시보드</h1>
+          <p>엑셀·CSV 데이터를 통한 분야별·신규사업별 동적 시각화 및 지표 분석</p>
+        </div>
+      </div>
+
+      <div class="navbar-actions">
+        <span class="meta-pill" id="yearComparisonBadge">기준연도 ➔ 당해연도</span>
+        <span class="meta-pill-subtle" id="currentFileName">2027년_국방예산.xlsx</span>
+        <a href="sample_budget.csv" download="샘플_예산데이터.csv" class="btn btn-default" title="테스트용 샘플 CSV 다운로드">
+          <i data-lucide="download" style="width: 14px; height: 14px;"></i> 샘플 CSV 받기
+        </a>
+        <button class="btn btn-default" id="btnReloadSample" title="초기 샘플 데이터 복원">
+          <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i> 샘플 복원
+        </button>
+        <button class="btn btn-default" id="btnPrintDashboard" title="대시보드 인쇄 또는 PDF 저장">
+          <i data-lucide="printer" style="width: 14px; height: 14px;"></i> 보고서 인쇄
+        </button>
+      </div>
+    </header>
+
+    <!-- 2. File Upload Area (Drag & Drop) -->
+    <section class="upload-section">
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;">
+        <div class="drop-icon-wrapper">
+          <i data-lucide="upload-cloud" style="width: 28px; height: 28px;"></i>
+        </div>
+        <div>
+          <h3>엑셀(.xlsx, .xls) 또는 CSV 파일을 이곳에 끌어다 놓거나 클릭하여 선택하세요</h3>
+          <p>연번, 분야, 세부 사업, 예산, 증감, 증가율, 핵심 내용 포맷을 자동 감지하여 인포그래픽을 실시간 갱신합니다.</p>
+        </div>
+        <div class="file-types-badge">
+          <span>Excel (.xlsx, .xls)</span>
+          <span>CSV (.csv)</span>
+          <span>원클릭 즉시 파싱</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Key Performance Indicators (KPI Overview Cards) -->
+    <section class="kpi-grid">
+      <!-- KPI Card 1: 총 예산 규모 -->
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">총 예산 규모 (정부안)</span>
+          <div class="kpi-icon-box kpi-icon-blue">
+            <i data-lucide="coins" style="width: 20px; height: 20px;"></i>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiTotalCurr">-</div>
+        <div class="kpi-footer" id="kpiTotalDiff">
+          전년 대비 계산 중...
+        </div>
+      </div>
+
+      <!-- KPI Card 2: 전체 증감률 -->
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">전년 대비 총 증감률</span>
+          <div class="kpi-icon-box kpi-icon-emerald">
+            <i data-lucide="trending-up" style="width: 20px; height: 20px;"></i>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiTotalRate">-</div>
+        <div class="kpi-footer">
+          <span class="kpi-badge" id="kpiTotalRateBadge">-</span>
+          <span>전체 순지출 기준</span>
+        </div>
+      </div>
+
+      <!-- KPI Card 3: 중점 분야 수 -->
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">중점 투자 분야 수</span>
+          <div class="kpi-icon-box kpi-icon-indigo">
+            <i data-lucide="layers" style="width: 20px; height: 20px;"></i>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiCategoryCount">-</div>
+        <div class="kpi-footer" id="kpiItemCount">
+          총 0개 세부사업 지표
+        </div>
+      </div>
+
+      <!-- KPI Card 4: 신규 사업 규모 -->
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">신규 사업 집중 투자액</span>
+          <div class="kpi-icon-box kpi-icon-purple">
+            <i data-lucide="sparkles" style="width: 20px; height: 20px;"></i>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpiNewBudget">-</div>
+        <div class="kpi-footer" id="kpiNewCount">
+          신규 사업 분석 중...
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Charts Section 1: 분야별(중점영역) 인포그래픽 차트 -->
+    <section class="chart-grid-2col">
+      <!-- Chart 1: 분야별 예산 점유율 (도넛) -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>
+            <i data-lucide="donut" style="width: 18px; height: 18px; color: var(--primary-light);"></i>
+            중점 분야별 예산 배분 점유율
+          </h3>
+          <span class="subtitle">각 분야별 투자 비중 (%)</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="categoryShareChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: 분야별 전년 vs 정부안 비교 (가로 막대) -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>
+            <i data-lucide="bar-chart-3" style="width: 18px; height: 18px; color: var(--primary-light);"></i>
+            분야별 예산 비교 (전년 vs 당해연도)
+          </h3>
+          <span class="subtitle">분야별 증감 규모 직관적 비교</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="categoryComparisonChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Category Quick Filter Cards (분야별 요약 카드) -->
+    <section class="section-block">
+      <div class="section-header">
+        <h2>
+          <i data-lucide="grid" style="width: 20px; height: 20px; color: var(--primary);"></i>
+          분야별 세부 지표 카드
+        </h2>
+        <span class="section-desc">※ 카드를 클릭하면 하단 상세 목록이 해당 분야로 필터링됩니다.</span>
+      </div>
+      <div class="category-cards-grid" id="categoryCardsGrid">
+        <!-- Dynamically injected via ui.js -->
+      </div>
+    </section>
+
+    <!-- 6. Charts Section 2 & New Projects Spotlight (신규사업 집중 인포그래픽) -->
+    <section class="new-projects-spotlight">
+      <div class="section-header">
+        <h2>
+          <i data-lucide="sparkle" style="width: 22px; height: 22px; color: var(--accent-purple);"></i>
+          신규 착수 및 신규 지원 사업 집중 조명 (Spotlight)
+        </h2>
+        <span class="meta-pill" style="background: #f3e8ff; color: #7c3aed; border-color: #ddd6fe;" id="newProjectsBadgeCount">
+          0개 사업
+        </span>
+      </div>
+
+      <!-- New Projects Visual Comparison Grid -->
+      <div class="chart-grid-2col" style="margin-bottom: 20px;">
+        <div class="chart-card" style="box-shadow: none;">
+          <div class="chart-card-header">
+            <h3>
+              <i data-lucide="scale" style="width: 18px; height: 18px; color: var(--accent-purple);"></i>
+              계속사업 vs 신규사업 예산 비중
+            </h3>
+            <span class="subtitle">신규 사업의 재정 비중</span>
+          </div>
+          <div class="chart-body" style="height: 240px;">
+            <canvas id="newVsExistingChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card" style="box-shadow: none;">
+          <div class="chart-card-header">
+            <h3>
+              <i data-lucide="award" style="width: 18px; height: 18px; color: var(--accent-purple);"></i>
+              신규사업 예산 규모 Top 랭킹
+            </h3>
+            <span class="subtitle">주요 신규 사업별 투자 규모</span>
+          </div>
+          <div class="chart-body" style="height: 240px;">
+            <canvas id="newProjectsChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- New Projects Cards Gallery -->
+      <div class="new-projects-gallery" id="newProjectsGallery">
+        <!-- Dynamically injected via ui.js -->
+      </div>
+    </section>
+
+    <!-- 7. Interactive Detailed Data Table -->
+    <section class="section-block" id="detailTableSection">
+      <div class="table-card">
+        
+        <!-- Table Toolbar Controls -->
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <!-- Keyword Search -->
+            <div class="search-box">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="tableSearchInput" placeholder="사업명, 핵심 내용 키워드 검색...">
+            </div>
+
+            <!-- Category Filter Select -->
+            <select class="filter-select" id="tableCategoryFilter">
+              <option value="all">전체 분야 보기</option>
+            </select>
+
+            <!-- Only New Projects Toggle -->
+            <label class="toggle-label">
+              <input type="checkbox" id="toggleOnlyNew">
+              <span>신규 사업만 모아보기</span>
+            </label>
+          </div>
+
+          <div class="toolbar-right">
+            <button class="btn btn-default" id="btnExportCsv" title="조회된 데이터를 CSV로 다운로드">
+              <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> CSV 내보내기
+            </button>
+            <button class="btn btn-primary" id="btnExportExcel" title="조회된 데이터를 엑셀로 다운로드">
+              <i data-lucide="download" style="width: 14px; height: 14px;"></i> 엑셀 내보내기
+            </button>
+          </div>
+        </div>
+
+        <!-- Table View -->
+        <div class="table-responsive">
+          <table class="budget-table">
+            <thead>
+              <tr>
+                <th style="width: 60px; text-align: center;" data-sort="id">연번</th>
+                <th style="width: 160px;" data-sort="category">분야 (중점영역)</th>
+                <th style="width: 240px;" data-sort="name">세부 사업 / 주요 지표</th>
+                <th style="width: 80px; text-align: center;">단위</th>
+                <th style="width: 110px; text-align: right;" data-sort="prevYear" id="thPrevYear">기준연도</th>
+                <th style="width: 120px; text-align: right;" data-sort="currYear" id="thCurrYear">당해연도</th>
+                <th style="width: 110px; text-align: right;" data-sort="diff">증감</th>
+                <th style="width: 100px; text-align: center;" data-sort="rate">증가율(%)</th>
+                <th style="min-width: 280px;">핵심 내용 및 보도자료 박스 원문 근거</th>
+              </tr>
+            </thead>
+            <tbody id="budgetTableBody">
+              <!-- Dynamically populated via ui.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table Footer -->
+        <div class="table-footer">
+          <span id="tableFilteredCount">조회 결과: 총 0건</span>
+          <span>* 테이블 헤더를 클릭하여 예산순, 증감률순으로 정렬할 수 있습니다.</span>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Application Modules -->
+  <script src="js/sampleData.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
